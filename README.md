@@ -13,14 +13,14 @@ $ sudo apt install -y wkhtmltopdf
 
 **From remote**
 ```sh
-wget https://raw.githubusercontent.com/kevinfarrugia/crawl2pdf/main/crawl2pdf
-chmod +x crawl2pdf
+$ wget https://raw.githubusercontent.com/kevinfarrugia/crawl2pdf/main/crawl2pdf
+$ chmod +x crawl2pdf
 ```
 
 **From source**
 ```sh
-git clone https://github.com/kevinfarrugia/crawl2pdf.git
-chmod +x crawl2pdf/crawl2pdf
+$ git clone https://github.com/kevinfarrugia/crawl2pdf.git
+$ chmod +x crawl2pdf/crawl2pdf
 ```
 
 ## Usage
