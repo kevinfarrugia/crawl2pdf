@@ -1,0 +1,111 @@
+#!/bin/bash
+
+usage() {
+  echo -e "Usage: $0 [options...] <url> \n\
+ -h, --help          Display help
+ -o, --output <path> Output path where to save results \n\
+ -w, --wait <requests> Number of seconds to wait in between requests (default=0) \n\
+ -d, --depth <count> The depth of how many links to recursively follow (default=1) \n\
+ -V, --verbose       Make the operation more talkative" 1>&2
+  exit 1
+}
+
+depth=1
+wait=0
+output="./crawl.pdf"
+
+# $@ is all command line parameters passed to the script.
+# -o is for short options like -v
+# -l is for long options with double dash like --version
+# the comma separates different long options
+options=$(getopt -l "help,verbose,output:,wait:,depth:" -o "hVo:w:d:" -- "$@")
+
+# set --:
+# If no arguments follow this option, then the positional parameters are unset. Otherwise, the positional parameters
+# are set to the arguments, even if some of them begin with a ‘-’.
+eval set -- "$options"
+
+while true; do
+  case $1 in
+  -h | --help)
+    usage
+    ;;
+  -V | --verbose)
+    verbose=1
+    ;;
+  -o | --output)
+    output=$2
+    ;;
+  -w | --wait)
+    wait=$2
+    ;;
+  -d | --depth)
+    depth=$2
+    ;;
+  --)
+    shift
+    break
+    ;;
+  esac
+  shift
+done
+
+url=$1
+domain=$(echo "$url" | sed -e 's/https\?:\/\///' -e 's/\/.*//')
+
+if [ -z "$url" ]; then
+  usage
+fi
+
+if [ "$verbose" == 1 ]; then
+  echo -e "Crawling $url...\n"
+fi
+
+if [ -d "$domain" ]; then
+  read -p "Folder ./$domain exists. Remove all contents? (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Nn]$ ]] || [[ -z $REPLY ]]; then
+    exit
+  fi
+fi
+
+if [ -f "$output" ]; then
+  read -p "Output file exists. Overwrite? (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Nn]$ ]] || [[ -z $REPLY ]]; then
+    exit
+  fi
+fi
+
+mkdir -p "$domain"
+rm -r "$domain"/*
+
+get() {  
+  # TODO: make the recursive depth an argument
+  wget -D "$domain" --spider --force-html --wait="$wait" -r -l"$depth" "$url" 2>&1 \
+   | grep '^--' | awk '{ print $3 }' \
+   | grep -v '\.\(css\|js\|png\|gif\|jpg\|jpeg\|txt\|svg\|pdf\|mp4\|avif\|ico\|webmanifest\|json\|webm\|xml\)$' \
+   | uniq > "$domain/log.txt"
+
+  if [ "$verbose" == 1 ]; then
+    cat "$domain/log.txt"
+  fi
+
+  count=0;
+  while read i; do 
+    count=$((count + 1));
+    wkhtmltopdf "$i" "$domain/$(echo "$count"-"$i" | sed -e 's/https\?:\/\///' -e 's/\//-/g').pdf"; 
+  done < "$domain/log.txt"
+
+  gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=$output $(ls -1 "$domain"/*.pdf)
+}
+
+get
+
+if [ ! -z "$output" ] && [ "$verbose" == 1 ]; then
+  echo -e "Saved results to $output\n"
+fi
+
+if [ "$verbose" == 1 ]; then
+  echo "Done."
+fi
